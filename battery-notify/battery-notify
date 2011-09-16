@@ -1,0 +1,25 @@
+#! /bin/bash
+# Author: Abhilash Raj
+# Purpose: battery-notify reminds you to plug you laptop to power\
+#  when battery is discharging.
+
+
+NOTIFICATION_TITLE="Plug to power"
+NOTIFICATION_BODY="You battery is discharging. Please plug in to power soon to avoid shutdown."
+
+
+notify() {
+   notify-send --expire-time="10000" \ #the notification lasts for 10sec
+   --urgency=critical "$NOTIFICATION_TITLE" "$NOTIFICATION_BODY";
+}
+
+
+while true ; do
+   #main loop 
+     sleep 900;
+     #check weather battery is charging or discharging
+     if [ "$(acpi -a)" != 'Adapter 0: on-line' ]; then  
+	notify;
+     fi
+
+done
