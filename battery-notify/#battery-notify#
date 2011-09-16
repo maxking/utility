@@ -9,14 +9,14 @@ NOTIFICATION_BODY="You battery is discharging. Please plug in to power soon to a
 
 
 notify() {
-   notify-send --expire-time="10000" \
-   --urgency=critical "$NOTIFICATION_TITLE" "$NOTIFICATION_BODY";
+   notify-send --expire-time="10000"  #the notification lasts for 10sec
+   --urgency=critical "$NOTIFICATION_TITLE" "$NOTIFICATION_BO";
 }
 
 
 while true ; do
    #main loop 
-     sleep 900;
+     sleep 9;
      #check weather battery is charging or discharging
      if [ "$(acpi -a)" != 'Adapter 0: on-line' ]; then  
 	notify;
