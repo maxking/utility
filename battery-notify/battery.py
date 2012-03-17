@@ -1,11 +1,3 @@
-#############################################################
-#Description:
-#This files returns the remaining battery status to discharge
-#from the input of command acpi
-#
-#Author:Abhilash Raj
-#############################################################
-
 import sys
 
 def main():
