@@ -1,0 +1,125 @@
+#! /bin/bash
+# Author: Vicky Chijwani
+# Purpose: To notify the user of new email (works even if you're behind an HTTP proxy)
+
+# -----------------------------------------------------------------------------------------------
+# USER CONFIGURATION OPTIONS --------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------------
+EMAIL_USERNAME='raj.abhilash1@gmail.com'               # Gmail username (within single quotes)
+EMAIL_PASSWORD='omega[123]'               # Gmail password (within single quotes)
+NOTIFICATION_EXPIRE_TIME=4                   # Time (in seconds) for which notifications persist
+DELAY_BETWEEN_CHECKS=30                      # Time (in seconds) between checks (recommended>=30)
+CONNECTION_TIMEOUT=29   # Time (in seconds) before a connection times out
+                                             # Recommended value is "$DELAY_BETWEEN_CHECKS-1"
+NETWORK_ERROR_NOTIFICATIONS='OFF'            # Should error notifications be displayed?
+                                             # Recommended is "ON" for fast connections and
+                                             # "OFF" for slow connections.
+AUDIO_NOTIFICATIONS='ON'                    # Should audio notifications be played for new mail?
+                                             # (default is 'OFF', change it to 'ON' to enable)
+AUDIO_NOTIFICATIONS_SOUND='message.wav'      # Any *.wav file placed in the "sounds/" folder
+
+# ------------------------------------------------------------------------------------------------
+# CODE (Do not change anything below this line) --------------------------------------------------
+# ------------------------------------------------------------------------------------------------
+cd ~/.gmail_notifier
+python messaging_menu.py &
+
+# remove any existing files
+if [ -f mail.unread ]; then rm mail.unread; fi
+if [ -f mail.unread.old ]; then	rm mail.unread.old; fi
+if [ -f mail.error ]; then rm mail.error; fi
+
+# fetch unread mail from Gmail's unread mail RSS feed and store it in mail.unread
+get_unread_mail() {
+#	if [ ${#http_proxy} -gt 0 ]; then
+#		# if proxy variable is set, use curl accordingly
+		output=$(curl --connect-timeout $CONNECTION_TIMEOUT -s -u $EMAIL_USERNAME:$EMAIL_PASSWORD "https://mail.google.com/mail/feed/atom" --proxy http://10.3.100.211:8080)
+#	else
+#		output=$(curl --connect-timeout $CONNECTION_TIMEOUT -s -u $EMAIL_USERNAME:$EMAIL_PASSWORD "https://mail.google.com/mail/feed/atom")
+#	fi
+
+	# if an error has occurred, record that by creating the file mail.error and notify the user of the error ...
+	if [ ! "$output" ]; then
+		if [ ! -f mail.error ] || [ `cat mail.error` == "1" ]; then
+                	if [ `echo $NETWORK_ERROR_NOTIFICATIONS` == "ON" ]; then
+				notify "Network error"
+			fi
+			echo "0">mail.error				# 0 denotes a network error
+		fi
+	# ... otherwise, if mail.error exists, delete it, and save the contents of $output in mail.unread
+	else
+		if [ $(echo "$output"|xpath -q -e "//fullcount/text()") ]; then
+			if [ -f mail.error ]; then
+				if [ `echo $NETWORK_ERROR_NOTIFICATIONS` == "ON" ]; then
+					notify "Connection established"
+				fi
+				rm mail.error
+			fi
+			echo "$output" > mail.unread
+			while [ ! -f mail.unread ]; do sleep 1; done
+		else
+			if [ ! -f mail.error ] || [ `cat mail.error` == "0" ]; then
+				notify "Authentication error"
+				echo "1">mail.error			# 1 denotes an authentication error
+			fi
+		fi
+	fi
+}
+
+notify_email() {
+	# visual notification
+	local notification_title="You have $1 unread email(s)"
+	local notification_content=""
+	for (( i=1 ; i<=$(xpath -q -e "count(//entry)" mail.unread 2>&1|sed 's/^.*Value: //'); i=$i+1 )); do
+		if [ $i -ne 1 ]; then notification_content="$notification_content\n"; fi
+		notification_content="$notification_content$(echo `xpath -q -e "(//entry/title)[$i]/text()" mail.unread|cut -c1-40`; echo -n "\t- "; echo `xpath -q -e "(//entry/author/name)[$i]/text()" mail.unread`)"
+	done
+	notify "$notification_title" "$notification_content"
+	
+	# audio notification
+	if [ `echo $AUDIO_NOTIFICATIONS` == "ON" ]; then
+		paplay "$HOME/.gmail_notifier/sounds/$AUDIO_NOTIFICATIONS_SOUND"
+	fi
+}
+
+notify() {
+	echo "$1" "$2"
+	notify-send --urgency=critical --expire-time `echo $NOTIFICATION_EXPIRE_TIME*1000|bc` --icon "$(echo mail-unread)" "$1" "$2"
+}
+
+check_for_email() {
+	# if 'mail.unread' already exists, copy its contents into 'mail.unread.old' and store the new unread mail in 'mail.unread' ...(1)
+	if [ -f mail.unread ]; then
+	
+		# copy the contents of mail.unread into mail.unread.old
+		cp mail.unread mail.unread.old
+		
+		# get the current unread mail
+		get_unread_mail
+		if [ ! -f mail.error ]; then
+			old_unread=$(xpath -q -e "//fullcount/text()" mail.unread.old)
+			new_unread=$(xpath -q -e "//fullcount/text()" mail.unread)
+			
+			# notify the user if the number of unread mails has increased
+			if [ "$new_unread" -gt "$old_unread" ]; then
+				notify_email $new_unread
+			fi
+		fi
+	
+	# (1)... else just store the unread mail in 'mail.unread' and notify the user directly
+	else
+		
+		get_unread_mail
+		if [ ! -f mail.error ]; then
+			unread=$(xpath -q -e "//fullcount/text()" mail.unread)
+			notify_email $unread
+		fi
+	
+	fi
+}
+
+# run indefinitely in the background
+while [ 1 -eq 1 ]; do
+	check_for_email
+	sleep $DELAY_BETWEEN_CHECKS
+done
