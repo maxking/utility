@@ -1,7 +1,0 @@
-import sys
-from sys import argv
-
-testfile = argv
-
-main() :
-
