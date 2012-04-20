@@ -6,12 +6,12 @@
 # USER CONFIGURATION OPTIONS --------------------------------------------------------------------
 # -----------------------------------------------------------------------------------------------
 EMAIL_USERNAME='raj.abhilash1@gmail.com'               # Gmail username (within single quotes)
-EMAIL_PASSWORD='omega[123]'               # Gmail password (within single quotes)
+EMAIL_PASSWORD='********'               # Gmail password (within single quotes)
 NOTIFICATION_EXPIRE_TIME=10                   # Time (in seconds) for which notifications persist
 DELAY_BETWEEN_CHECKS=30                      # Time (in seconds) between checks (recommended>=30)
 CONNECTION_TIMEOUT=$(($DELAY_BETWEEN_CHECKS-1))   # Time (in seconds) before a connection times out
                                              # Recommended value is "$DELAY_BETWEEN_CHECKS-1"
-NETWORK_ERROR_NOTIFICATIONS='OFF'            # Should error notifications be displayed?
+NETWORK_ERROR_NOTIFICATIONS='ON'            # Should error notifications be displayed?
                                              # Recommended is "ON" for fast connections and
                                              # "OFF" for slow connections.
 AUDIO_NOTIFICATIONS='ON'                    # Should audio notifications be played for new mail?
@@ -30,14 +30,15 @@ if [ -f mail.error ]; then rm mail.error; fi
 
 # fetch unread mail from Gmail's unread mail RSS feed and store it in mail.unread
 get_unread_mail() {
-#	if [ ${#http_proxy} -gt 0 ]; then
-#		 if proxy variable is set, use curl accordingly
-		output=$(curl --connect-timeout $CONNECTION_TIMEOUT -s -u $EMAIL_USERNAME:$EMAIL_PASSWORD "https://mail.google.com/mail/feed/atom" --proxy http://10.3.100.211:8080)
-#	else
-#		output=$(curl --connect-timeout $CONNECTION_TIMEOUT -s -u $EMAIL_USERNAME:$EMAIL_PASSWORD "https://mail.google.com/mail/feed/atom")
-#	fi
+	if [ ${http_proxy} -gt 0 ]; then
+		 if proxy variable is set, use curl accordingly
+		output=$(curl --connect-timeout $CONNECTION_TIMEOUT -s -u $EMAIL_USERNAME:$EMAIL_PASSWORD "https://mail.google.com/mail/feed/atom" --proxy $http_proxy)
+	else
+		output=$(curl --connect-timeout $CONNECTION_TIMEOUT -s -u $EMAIL_USERNAME:$EMAIL_PASSWORD "https://mail.google.com/mail/feed/atom")
+	fi
 
 	# if an error has occurred, record that by creating the file mail.error and notify the user of the error ...
+	echo $output
 	if [ ! "$output" ]; then
 		if [ ! -f mail.error ] || [ `cat mail.error` == "1" ]; then
                 	if [ `echo $NETWORK_ERROR_NOTIFICATIONS` == "ON" ]; then
